@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Secret Santa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow column; home = three doors (s'inscrire, organiser, découvrir) */
+:root {
+  --bg: #f4f6f2; --surface: #ffffff; --sunk: #e8ede6; --line: #d3dcd3;
+  --fg: #16302b; --muted: #5b6d66; --accent: #b3263e; --accent-fg: #ffffff;
+  --gold: #a87814; --ok: #1f7a4d; --pip: #16302b; --die: #fffdf7;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1a17; --surface: #15251f; --sunk: #1c2f29; --line: #2b423a;
+    --fg: #e8f0eb; --muted: #9fb2aa; --accent: #e0566b; --accent-fg: #1a0a0d;
+    --gold: #e2b552; --ok: #5fd39a; --pip: #e8f0eb; --die: #20352e;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+[hidden] { display: none !important; }
+.wrap { max-width: 720px; margin: 0 auto; padding-block: 28px 64px; display: grid; gap: 22px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(30px, 7vw, 44px); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 21px; font-weight: 700; }
+h3 { font-size: 16px; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+.muted { color: var(--muted); } .small { font-size: 13px; }
+.eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+header { display: grid; gap: 8px; }
+.back { justify-self: start; }
+.doors { display: grid; gap: 12px; }
+.door { text-align: left; display: grid; gap: 4px; padding: 18px 20px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; font: inherit; }
+.door:hover { border-color: var(--accent); }
+.door strong { font-family: var(--font-display); font-size: 19px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 14px; }
+.card.hero { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+form { display: grid; gap: 14px; }
+label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; }
+.hint { font-weight: 400; color: var(--muted); font-size: 13px; }
+input, select, textarea { font: 15px var(--font-body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; min-width: 0; }
+textarea { min-height: 76px; resize: vertical; }
+textarea.code { font-family: var(--font-mono); font-size: 12px; word-break: break-all; min-height: 110px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.row > * { flex: 1 1 180px; min-width: 0; }
+.row > .shrink { flex: 0 0 auto; }
+.btn { appearance: none; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: 600 14px var(--font-body); padding: 10px 16px; border-radius: 10px; cursor: pointer; }
+.btn:hover { border-color: var(--fg); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.danger { color: var(--accent); }
+.link { appearance: none; border: 0; background: none; color: var(--accent); font: 600 13px var(--font-body); padding: 4px; cursor: pointer; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
+.pseudo { font-family: var(--font-display); font-weight: 700; }
+.notice { border-radius: 10px; padding: 10px 12px; background: var(--sunk); font-size: 14px; }
+.notice.err { color: var(--accent); } .notice.ok { color: var(--ok); }
+.list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--sunk); border-radius: 10px; padding: 10px 12px; flex-wrap: wrap; }
+.list li > span { min-width: 0; }
+.confirm { display: grid; gap: 10px; padding: 12px; border-radius: 10px; border: 1px dashed var(--accent); }
+.stage { display: grid; justify-items: center; gap: 18px; padding: 10px 0 4px; }
+.scene { width: 110px; height: 110px; perspective: 600px; }
+.cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: rotateX(-24deg) rotateY(32deg); }
+.cube.rolling { transition: transform 1.9s cubic-bezier(.2,.75,.15,1); }
+.face { position: absolute; inset: 0; background: var(--die); border: 2px solid var(--line); border-radius: 18px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 14px; }
+.face i { width: 16px; height: 16px; border-radius: 50%; background: var(--pip); place-self: center; }
+.face.f1 i, .face.f5 i { background: var(--accent); }
+.f1 { transform: rotateY(0deg) translateZ(55px); } .f2 { transform: rotateY(90deg) translateZ(55px); }
+.f3 { transform: rotateY(180deg) translateZ(55px); } .f4 { transform: rotateY(-90deg) translateZ(55px); }
+.f5 { transform: rotateX(90deg) translateZ(55px); } .f6 { transform: rotateX(-90deg) translateZ(55px); }
+.ticker { font-family: var(--font-display); font-weight: 700; font-size: 22px; min-height: 30px; text-align: center; color: var(--muted); }
+.reveal { text-align: center; display: grid; gap: 8px; justify-items: center; }
+.reveal .to { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.reveal .name { font-family: var(--font-display); font-weight: 800; font-size: clamp(34px, 9vw, 52px); color: var(--accent); line-height: 1.05; }
+.wishes { background: var(--sunk); border-radius: 10px; padding: 12px 14px; text-align: left; white-space: pre-wrap; width: 100%; }
+.checks { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.checks li { display: flex; gap: 10px; align-items: baseline; }
+.tick { color: var(--ok); font-weight: 700; } .cross { color: var(--accent); font-weight: 700; }
+.chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.letter { font-family: var(--font-mono); font-weight: 700; font-size: 16px; min-width: 38px; height: 38px; padding: 0 6px; display: inline-grid; place-items: center; border-radius: 10px; background: var(--sunk); border: 1px solid var(--line); }
+.arrow { color: var(--muted); font-family: var(--font-mono); }
+.pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.pair { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .cube.rolling { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Tirage au sort secret</span>
+    <h1>Secret Santa</h1>
+    <button class="link back" id="backBtn" type="button" hidden>← Accueil</button>
+  </header>
+
+  <!-- ACCUEIL -->
+  <section id="v-home" class="doors">
+    <button class="door" type="button" data-go="inscription"><strong>Je m'inscris</strong><span class="muted">Je choisis mon code secret et j'envoie mon code d'inscription à l'organisateur.</span></button>
+    <button class="door" type="button" data-go="decouvrir"><strong>Je lance le dé</strong><span class="muted">J'ai reçu mon message de tirage : je découvre à qui je fais un cadeau.</span></button>
+    <button class="door" type="button" data-go="organisateur"><strong>J'organise</strong><span class="muted">J'ajoute les participants, je gère les exclusions et je lance le tirage.</span></button>
+    <p class="small muted">Aucun compte, aucun serveur : tout est chiffré dans votre téléphone. Personne, pas même l'organisateur, ne peut voir qui a tiré qui.</p>
+  </section>
+
+  <!-- INSCRIPTION -->
+  <section id="v-inscription" hidden>
+    <div class="card hero" id="regCard">
+      <h2>Je m'inscris</h2>
+      <p class="muted small">Votre code secret sert à ouvrir votre résultat. Notez-le bien : il ne peut pas être récupéré.</p>
+      <form id="regForm">
+        <label for="regPrenom">Prénom<input id="regPrenom" maxlength="30" autocomplete="given-name" required placeholder="Camille"></label>
+        <div class="row" style="align-items:center">
+          <div><div class="small muted">Votre pseudo</div><span class="pseudo" id="regPseudo"></span></div>
+          <button class="btn shrink" type="button" id="regReroll">Un autre pseudo</button>
+        </div>
+        <div class="row">
+          <label for="regCode">Code secret<span class="hint">6 caractères minimum</span><input id="regCode" type="password" minlength="6" autocomplete="new-password" required></label>
+          <label for="regCode2">Confirmer le code<span class="hint">&nbsp;</span><input id="regCode2" type="password" minlength="6" autocomplete="new-password" required></label>
+        </div>
+        <label for="regWish">Idées cadeaux<span class="hint">Facultatif, lues uniquement par la personne qui vous tirera</span><textarea id="regWish" maxlength="200" placeholder="Livres, thé, chocolat noir… ou « surprise totale ! »"></textarea></label>
+        <p class="notice err" id="regMsg" hidden></p>
+        <div class="row"><button class="btn primary shrink" type="submit" id="regBtn">Créer mon code d'inscription</button></div>
+      </form>
+    </div>
+    <div class="card" id="regOut" hidden>
+      <h2>Votre code d'inscription</h2>
+      <p class="muted">Copiez ce code et envoyez-le à l'organisateur (SMS, WhatsApp, e-mail). Il ne contient pas votre code secret.</p>
+      <textarea class="code" id="regCodeOut" readonly></textarea>
+      <div class="row"><button class="btn primary shrink" type="button" id="regCopy">Copier le code</button><span class="small muted" id="regCopyMsg"></span></div>
+    </div>
+  </section>
+
+  <!-- DECOUVRIR -->
+  <section id="v-decouvrir" hidden>
+    <div class="card hero">
+      <h2>Je lance le dé</h2>
+      <div class="stage"><div class="scene" id="scene"></div><div class="ticker" id="ticker" aria-live="polite">Qui allez-vous gâter ?</div></div>
+      <form id="revForm">
+        <p class="pseudo" id="revHello" hidden></p>
+        <label for="revMsgIn" id="revMsgLabel">Message de tirage reçu de l'organisateur<textarea class="code" id="revMsgIn" placeholder="Collez ici le message reçu (SANTA-R1… ou SANTA-T1…)"></textarea></label>
+        <div class="row">
+          <label for="revCode" id="revCodeLabel">Code secret<input id="revCode" type="password" autocomplete="current-password"></label>
+          <button class="btn primary shrink" type="submit" id="revBtn">Lancer le dé</button>
+        </div>
+        <p class="notice err" id="revErr" hidden></p>
+      </form>
+      <div id="revOut"></div>
+      <p class="muted small">Le tirage a été fixé d'avance pour que personne ne se tire lui-même ni ne se retrouve seul : le dé dévoile votre résultat, il ne le change pas.</p>
+    </div>
+  </section>
+
+  <!-- ORGANISATEUR -->
+  <section id="v-organisateur" hidden>
+    <div class="card">
+      <h2>Réglages</h2>
+      <div class="row">
+        <label for="cfgTitle">Nom de l'événement<input id="cfgTitle" maxlength="50" placeholder="Noël en famille"></label>
+      </div>
+      <div class="row">
+        <label for="cfgBudget">Budget par cadeau<input id="cfgBudget" maxlength="20" placeholder="20 €"></label>
+        <label for="cfgDate">Date de l'échange<input id="cfgDate" type="date"></label>
+      </div>
+      <label for="cfgLink">Lien de cette page<span class="hint">Indispensable pour envoyer des liens personnels : l'adresse où vous avez mis ce fichier en ligne</span><input id="cfgLink" placeholder="https://…"></label>
+    </div>
+
+    <div class="card">
+      <h2>Participants <span class="muted" id="pCount"></span></h2>
+      <div class="row">
+        <label for="addName">Ajouter directement un participant<span class="hint">Il recevra un lien personnel, sans code secret</span><input id="addName" maxlength="30" placeholder="Prénom"></label>
+        <button class="btn primary shrink" type="button" id="addNameBtn">Ajouter</button>
+      </div>
+      <label for="addWish">Ses idées cadeaux<span class="hint">Facultatif</span><input id="addWish" maxlength="200" placeholder="Livres, thé…"></label>
+      <details>
+        <summary class="small muted" style="cursor:pointer">Ou coller le code d'un participant qui s'est inscrit lui-même (avec code secret)</summary>
+        <div style="display:grid;gap:10px;margin-top:10px">
+          <textarea class="code" id="addCode" placeholder="SANTA-I1.…" aria-label="Code d'inscription"></textarea>
+          <div class="row"><button class="btn shrink" type="button" id="addBtn">Ajouter ce code</button></div>
+        </div>
+      </details>
+      <span class="small" id="addMsg"></span>
+      <ul class="list" id="pList"></ul>
+      <p class="small muted" id="pEmpty">Aucun participant pour l'instant. Envoyez le lien de cette page à chacun : ils s'inscrivent et vous renvoient leur code.</p>
+    </div>
+
+    <div class="card">
+      <h2>Exclusions</h2>
+      <p class="muted small">Les deux personnes d'une paire ne pourront pas se tirer l'une l'autre.</p>
+      <div class="row">
+        <label for="exA">Personne 1<select id="exA"></select></label>
+        <label for="exB">Personne 2<select id="exB"></select></label>
+        <button class="btn shrink" id="exAdd" type="button">Ajouter</button>
+      </div>
+      <ul class="list" id="exList"></ul>
+    </div>
+
+    <div class="card hero">
+      <h2>Tirage</h2>
+      <p class="muted small">Le tirage est chiffré pour chaque participant avec sa propre clé. Vous obtenez un message par personne à lui envoyer, que vous ne pouvez pas lire.</p>
+      <div id="drawZone"></div>
+    </div>
+
+    <div class="card" id="resCard" hidden>
+      <h2>Messages à envoyer</h2>
+      <p class="muted small">Envoyez à chacun son lien ou son message. N'ouvrez pas les liens personnels des autres : ils affichent le résultat dès qu'on lance le dé. Ouvrez seulement le vôtre.</p>
+      <ul class="list" id="resList"></ul>
+    </div>
+
+    <div class="card" id="checkCard" hidden></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, props = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === "class") n.className = v; else if (k === "text") n.textContent = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const k of kids) if (k != null) n.append(k);
+    return n;
+  };
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+
+  // ---------- encoding ----------
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  const b64u = (buf) => { const a = new Uint8Array(buf); let s = ""; for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+  const unb64u = (s) => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); };
+  const packJSON = (prefix, obj) => prefix + "." + b64u(enc.encode(JSON.stringify(obj)));
+  const unpackJSON = (prefix, txt) => { const t = (txt || "").replace(/\s+/g, ""); const i = t.indexOf(prefix + "."); if (i < 0) throw new Error("format"); return JSON.parse(dec.decode(unb64u(t.slice(i + prefix.length + 1)))); };
+  const rnd = (n) => crypto.getRandomValues(new Uint8Array(n));
+  const ITER = 310000;
+
+  // ---------- crypto ----------
+  async function passKey(secret, salt) {
+    const base = await crypto.subtle.importKey("raw", enc.encode(secret), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: ITER, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  async function makeIdentity(secret) {
+    const kp = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey"]);
+    const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
+    const pkcs8 = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
+    const salt = rnd(16), iv = rnd(12);
+    const w = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await passKey(secret, salt), pkcs8);
+    return { pub: b64u(pub), vault: { s: b64u(salt), i: b64u(iv), w: b64u(w) } };
+  }
+  async function sealFor(pubB64, vault, payload) {
+    const theirPub = await crypto.subtle.importKey("raw", unb64u(pubB64), { name: "ECDH", namedCurve: "P-256" }, false, []);
+    const eph = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({ name: "ECDH", public: theirPub }, eph.privateKey, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
+    const iv = rnd(12);
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(JSON.stringify(payload)));
+    return packJSON("SANTA-R1", { v: vault, e: b64u(await crypto.subtle.exportKey("raw", eph.publicKey)), i: b64u(iv), c: b64u(ct) });
+  }
+  // Ticket for a participant created by the organizer: no secret, the key travels inside the ticket.
+  async function makeTicket(giverName, payload) {
+    const raw = rnd(16), iv = rnd(12);
+    const key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt"]);
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(JSON.stringify(payload)));
+    return packJSON("SANTA-T1", { g: giverName, k: b64u(raw), i: b64u(iv), c: b64u(ct) });
+  }
+  const isTicket = (txt) => /SANTA-T1\./.test((txt || "").replace(/\s+/g, ""));
+  function ticketName(txt) { try { return unpackJSON("SANTA-T1", txt).g || ""; } catch { return ""; } }
+  async function openTicket(txt) {
+    let t; try { t = unpackJSON("SANTA-T1", txt); } catch { throw new Error("msg"); }
+    try {
+      const key = await crypto.subtle.importKey("raw", unb64u(t.k), "AES-GCM", false, ["decrypt"]);
+      return JSON.parse(dec.decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64u(t.i) }, key, unb64u(t.c))));
+    } catch { throw new Error("msg"); }
+  }
+  async function openMessage(msg, secret) {
+    if (isTicket(msg)) return openTicket(msg);
+    let m; try { m = unpackJSON("SANTA-R1", msg); } catch { throw new Error("msg"); }
+    let pkcs8;
+    try { pkcs8 = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64u(m.v.i) }, await passKey(secret, unb64u(m.v.s)), unb64u(m.v.w)); }
+    catch { throw new Error("code"); }
+    const priv = await crypto.subtle.importKey("pkcs8", pkcs8, { name: "ECDH", namedCurve: "P-256" }, false, ["deriveKey"]);
+    const ephPub = await crypto.subtle.importKey("raw", unb64u(m.e), { name: "ECDH", namedCurve: "P-256" }, false, []);
+    const key = await crypto.subtle.deriveKey({ name: "ECDH", public: ephPub }, priv, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64u(m.i) }, key, unb64u(m.c));
+    return JSON.parse(dec.decode(pt));
+  }
+
+  // ---------- draw ----------
+  const rint = (n) => crypto.getRandomValues(new Uint32Array(1))[0] % n;
+  function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rint(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function computeDraw(ids, excl) {
+    const bad = new Set(); for (const [a, b] of excl) { bad.add(a + "|" + b); bad.add(b + "|" + a); }
+    const ok = (a, b) => a !== b && !bad.has(a + "|" + b);
+    const n = ids.length; let steps = 0; const CAP = 400000;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const start = shuffle(ids)[0]; const path = [start]; const used = new Set([start]);
+      const dfs = () => {
+        if (++steps > CAP) return false;
+        if (path.length === n) return ok(path[n - 1], start);
+        for (const c of shuffle(ids)) { if (used.has(c) || !ok(path[path.length - 1], c)) continue; path.push(c); used.add(c); if (dfs()) return true; path.pop(); used.delete(c); }
+        return false;
+      };
+      if (dfs()) { const m = {}; for (let i = 0; i < n; i++) m[path[i]] = path[(i + 1) % n]; return m; }
+    }
+    steps = 0; const givers = shuffle(ids); const m = {}; const taken = new Set();
+    const go = (i) => {
+      if (++steps > CAP) return false; if (i === givers.length) return true;
+      for (const r of shuffle(ids)) { if (taken.has(r) || !ok(givers[i], r)) continue; m[givers[i]] = r; taken.add(r); if (go(i + 1)) return true; taken.delete(r); delete m[givers[i]]; }
+      return false;
+    };
+    return go(0) ? m : null;
+  }
+  const letterName = (i) => { const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; return i < 26 ? A[i] : A[Math.floor(i / 26) - 1] + A[i % 26]; };
+  function anonymize(map, excl) {
+    const ids = Object.keys(map); const lab = {}; shuffle(ids).forEach((id, i) => (lab[id] = letterName(i)));
+    const seen = new Set(); const cycles = [];
+    for (const s of shuffle(ids)) { if (seen.has(s)) continue; const c = []; let x = s; while (!seen.has(x)) { seen.add(x); c.push(lab[x]); x = map[x]; } cycles.push(c); }
+    const bad = new Set(); for (const [a, b] of excl) { bad.add(a + "|" + b); bad.add(b + "|" + a); }
+    return { cycles, checks: { givers: ids.length, receivers: new Set(Object.values(map)).size, selfDraws: ids.filter((g) => map[g] === g).length, exclusions: excl.length, exclusionHits: ids.filter((g) => bad.has(g + "|" + map[g])).length } };
+  }
+
+  // ---------- pseudos ----------
+  const NOUNS = ["Lutin", "Renne", "Flocon", "Sapin", "Grelot", "Pingouin", "Ours polaire", "Marron chaud", "Pain d'épice", "Traîneau", "Hibou des neiges", "Chocolat chaud", "Bonnet", "Glaçon", "Caribou", "Cadeau surprise"];
+  const ADJS = ["malicieux", "givré", "farceur", "pétillant", "rêveur", "gourmand", "scintillant", "frileux", "joyeux", "mystérieux", "endormi", "étourdi", "masqué", "pressé", "discret", "enrhumé"];
+  const newPseudo = () => NOUNS[rint(NOUNS.length)] + " " + ADJS[rint(ADJS.length)];
+
+  // ---------- navigation ----------
+  const VIEWS = ["home", "inscription", "decouvrir", "organisateur"];
+  function show() {
+    let h = location.hash.replace("#", "");
+    if (h.startsWith("t=")) { $("#revMsgIn").value = "SANTA-T1." + h.slice(2); h = "decouvrir"; }
+    syncReveal();
+    const v = VIEWS.includes(h) ? h : "home";
+    for (const x of VIEWS) $("#v-" + x).hidden = x !== v;
+    $("#backBtn").hidden = v === "home";
+    if (v === "organisateur") renderOrg();
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => { location.hash = b.dataset.go; }));
+  $("#backBtn").addEventListener("click", () => { location.hash = ""; });
+  window.addEventListener("hashchange", show);
+
+  async function copy(text, out) {
+    try { await navigator.clipboard.writeText(text); out.textContent = "Copié !"; }
+    catch { out.textContent = "Sélectionnez le texte et copiez-le."; }
+    setTimeout(() => (out.textContent = ""), 2500);
+  }
+
+  // ---------- inscription ----------
+  let regPseudo = newPseudo(); $("#regPseudo").textContent = regPseudo;
+  $("#regReroll").addEventListener("click", () => { regPseudo = newPseudo(); $("#regPseudo").textContent = regPseudo; });
+  $("#regForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); const msg = $("#regMsg"); msg.hidden = true;
+    const prenom = $("#regPrenom").value.trim(), c1 = $("#regCode").value, c2 = $("#regCode2").value;
+    if (!prenom) { msg.textContent = "Indiquez votre prénom."; msg.hidden = false; return; }
+    if (c1.length < 6) { msg.textContent = "Le code secret doit faire au moins 6 caractères."; msg.hidden = false; return; }
+    if (c1 !== c2) { msg.textContent = "Les deux codes ne sont pas identiques."; msg.hidden = false; return; }
+    const btn = $("#regBtn"); btn.disabled = true; btn.textContent = "Préparation…";
+    try {
+      const id = await makeIdentity(c1);
+      const code = packJSON("SANTA-I1", { n: prenom.slice(0, 30), p: regPseudo, w: $("#regWish").value.trim().slice(0, 200), k: id.pub, v: id.vault });
+      $("#regCodeOut").value = code; $("#regOut").hidden = false;
+      $("#regCode").value = ""; $("#regCode2").value = "";
+      $("#regOut").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch { msg.textContent = "Votre navigateur n'a pas pu créer le code. Essayez avec un navigateur récent (Chrome, Safari, Firefox)."; msg.hidden = false; }
+    btn.disabled = false; btn.textContent = "Créer mon code d'inscription";
+  });
+  $("#regCopy").addEventListener("click", () => copy($("#regCodeOut").value, $("#regCopyMsg")));
+
+  // ---------- découvrir ----------
+  const PIPS = { 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
+  const cube = el("div", { class: "cube", "aria-hidden": "true" });
+  for (let f = 1; f <= 6; f++) { const face = el("div", { class: "face f" + f }); for (let c = 1; c <= 9; c++) face.append(PIPS[f].includes(c) ? el("i") : el("span")); cube.append(face); }
+  $("#scene").append(cube);
+  let rx = -24, ry = 32;
+  // A personal link (#t=…) or a pasted ticket needs no secret code: hide that field and greet the person.
+  function syncReveal() {
+    const msg = $("#revMsgIn").value, ticket = isTicket(msg), fromLink = location.hash.startsWith("#t=");
+    $("#revCodeLabel").hidden = ticket;
+    $("#revMsgLabel").hidden = fromLink && ticket;
+    const name = ticket ? ticketName(msg) : "";
+    $("#revHello").hidden = !name; $("#revHello").textContent = name ? "Bonjour " + name + " ! C'est à vous de lancer le dé." : "";
+  }
+  $("#revMsgIn").addEventListener("input", syncReveal);
+  $("#revForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); const err = $("#revErr"); err.hidden = true; const out = $("#revOut"); out.replaceChildren();
+    const msg = $("#revMsgIn").value, code = $("#revCode").value;
+    if (!msg.trim()) { err.textContent = "Collez d'abord le message reçu de l'organisateur."; err.hidden = false; return; }
+    if (!code && !isTicket(msg)) { err.textContent = "Tapez votre code secret."; err.hidden = false; return; }
+    const btn = $("#revBtn"); btn.disabled = true; btn.textContent = "Ouverture…";
+    let r;
+    try { r = await openMessage(msg, code); }
+    catch (x) {
+      btn.disabled = false; btn.textContent = "Lancer le dé";
+      err.textContent = x.message === "code" ? "Code secret incorrect. Vérifiez les majuscules et réessayez." : "Ce message est incomplet ou abîmé. Recopiez-le en entier, depuis SANTA-R1 jusqu'à la fin.";
+      err.hidden = false; return;
+    }
+    $("#revCode").value = "";
+    const ticker = $("#ticker");
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      rx += 720 + 90 * rint(4); ry += 900 + 90 * rint(4);
+      cube.classList.add("rolling"); cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+      const t0 = performance.now();
+      await new Promise((res) => { const tick = () => { ticker.textContent = newPseudo(); if (performance.now() - t0 < 1800) setTimeout(tick, 70 + (performance.now() - t0) / 12); else res(); }; tick(); });
+    }
+    ticker.textContent = r.ps;
+    const info = [r.b ? "Budget : " + r.b : "", r.d ? "Échange le " + fmtDate(r.d) : ""].filter(Boolean).join(" · ");
+    out.append(el("div", { class: "reveal" },
+      r.t ? el("span", { class: "muted small", text: r.t }) : null,
+      el("span", { class: "to", text: "Vous offrez un cadeau à" }),
+      el("span", { class: "name", text: r.pn }),
+      el("span", { class: "muted" }, "alias ", el("span", { class: "pseudo", text: r.ps })),
+      r.w ? el("div", { class: "wishes" }, el("strong", { text: "Ses idées cadeaux : " }), r.w) : el("p", { class: "muted small", text: "Pas d'idées cadeaux de sa part : à vous d'imaginer !" }),
+      info ? el("p", { class: "small", text: info }) : null,
+      el("p", { class: "muted small", text: "Gardez le secret ! Rien n'est enregistré : ce résultat disparaît quand vous fermez la page." }),
+      el("button", { class: "btn", type: "button", text: "Masquer", onclick: () => { out.replaceChildren(); ticker.textContent = "Qui allez-vous gâter ?"; } })));
+    btn.disabled = false; btn.textContent = "Relancer le dé";
+  });
+
+  // ---------- organisateur ----------
+  const ORG_KEY = "secret-santa-org-v1";
+  const org = Object.assign({ title: "", budget: "", date: "", link: "", people: [], excl: [], results: null }, store.get(ORG_KEY, {}));
+  const save = () => store.set(ORG_KEY, org);
+  const fmtDate = (s) => { if (!s) return ""; const d = new Date(s + "T12:00:00"); return isNaN(d) ? s : d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }); };
+  let confirmDraw = false;
+
+  for (const [id, key] of [["cfgTitle", "title"], ["cfgBudget", "budget"], ["cfgDate", "date"], ["cfgLink", "link"]]) {
+    const i = $("#" + id); i.value = org[key] || "";
+    if (!org.link && key === "link" && /^https?:/.test(location.href)) i.value = org.link = location.href.split("#")[0];
+    i.addEventListener("input", () => { org[key] = i.value.trim(); save(); });
+  }
+
+  $("#addBtn").addEventListener("click", () => {
+    const out = $("#addMsg"); out.className = "small";
+    let d;
+    try { d = unpackJSON("SANTA-I1", $("#addCode").value); if (!d.k || !d.v || !d.n) throw 0; }
+    catch { out.textContent = "Code non reconnu : il doit commencer par SANTA-I1. et être copié en entier."; out.classList.add("notice", "err"); return; }
+    if (org.people.some((p) => p.k === d.k)) { out.textContent = d.n + " est déjà dans la liste."; return; }
+    org.people.push({ id: d.k.slice(0, 16), n: d.n, p: d.p || "", w: d.w || "", k: d.k, v: d.v });
+    if (org.results) out.textContent = d.n + " ajouté. Le tirage déjà fait ne l'inclut pas : relancez-le.";
+    else out.textContent = d.n + " ajouté.";
+    $("#addCode").value = ""; save(); renderOrg();
+  });
+  const addByName = () => {
+    const out = $("#addMsg"); out.className = "small";
+    const n = $("#addName").value.trim().slice(0, 30);
+    if (!n) { out.textContent = "Tapez un prénom."; return; }
+    if (org.people.some((p) => p.n.toLowerCase() === n.toLowerCase())) { out.textContent = n + " est déjà dans la liste. Ajoutez une initiale pour les distinguer."; return; }
+    const taken = new Set(org.people.map((p) => p.p));
+    let ps = newPseudo(); for (let i = 0; i < 30 && taken.has(ps); i++) ps = newPseudo();
+    org.people.push({ id: "n" + b64u(rnd(9)), n, p: ps, w: $("#addWish").value.trim().slice(0, 200), k: null, v: null });
+    out.textContent = org.results ? n + " ajouté. Le tirage déjà fait ne l'inclut pas : relancez-le." : n + " ajouté.";
+    $("#addName").value = ""; $("#addWish").value = ""; $("#addName").focus(); save(); renderOrg();
+  };
+  $("#addNameBtn").addEventListener("click", addByName);
+  $("#addName").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addByName(); } });
+  $("#exAdd").addEventListener("click", () => {
+    const a = $("#exA").value, b = $("#exB").value;
+    if (!a || !b || a === b || org.excl.some(([x, y]) => (x === a && y === b) || (x === b && y === a))) return;
+    org.excl.push([a, b]); save(); renderOrg();
+  });
+
+  function fillSelect(sel) {
+    const cur = sel.value; sel.replaceChildren(el("option", { value: "", text: "Choisir…" }));
+    for (const p of org.people) sel.append(el("option", { value: p.id, text: p.n + " · " + p.p }));
+    if (org.people.some((p) => p.id === cur)) sel.value = cur;
+  }
+
+  function renderOrg() {
+    const n = org.people.length;
+    $("#pCount").textContent = n ? "(" + n + ")" : "";
+    const list = $("#pList"); list.replaceChildren();
+    org.people.forEach((p, i) => list.append(el("li", {},
+      el("span", {}, el("strong", { text: p.n }), " ", el("span", { class: "pseudo muted", text: "· " + p.p }), el("span", { class: "small muted", text: p.k ? " · code secret" : " · lien personnel" })),
+      el("button", { class: "link", type: "button", text: "Retirer", onclick: () => {
+        org.people.splice(i, 1); org.excl = org.excl.filter(([a, b]) => a !== p.id && b !== p.id); save(); renderOrg();
+      } }))));
+    $("#pEmpty").hidden = n > 0;
+    fillSelect($("#exA")); fillSelect($("#exB"));
+    const byId = Object.fromEntries(org.people.map((p) => [p.id, p.n]));
+    const ex = $("#exList"); ex.replaceChildren();
+    org.excl.forEach((pair, i) => ex.append(el("li", {}, el("span", { text: (byId[pair[0]] || "?") + "  ✕  " + (byId[pair[1]] || "?") }),
+      el("button", { class: "link", type: "button", text: "Supprimer", onclick: () => { org.excl.splice(i, 1); save(); renderOrg(); } }))));
+    if (!org.excl.length) ex.append(el("li", {}, el("span", { class: "muted small", text: "Aucune exclusion." })));
+    renderDrawZone(); renderResults();
+  }
+
+  function renderDrawZone() {
+    const z = $("#drawZone"); z.replaceChildren(); const n = org.people.length;
+    const done = !!org.results;
+    if (done) {
+      const missing = org.people.filter((p) => !org.results.list.some((r) => r.id === p.id)).length;
+      const gone = org.results.list.filter((r) => !org.people.some((p) => p.id === r.id)).length;
+      z.append(el("p", { class: "notice ok", text: "Tirage effectué pour " + org.results.list.length + " personnes." }));
+      if (missing || gone) z.append(el("p", { class: "notice err", text: "La liste a changé depuis le tirage. Refaites-le, puis renvoyez les nouveaux messages à tout le monde." }));
+    } else z.append(el("p", { class: "muted", text: n < 3 ? "Il faut au moins 3 participants (" + n + " pour l'instant)." : n + " participants prêts." }));
+    const label = done ? "Refaire le tirage" : "Lancer le tirage";
+    if (!confirmDraw) { z.append(el("div", { class: "row" }, el("button", { class: "btn shrink " + (done ? "danger" : "primary"), type: "button", text: label, disabled: n < 3, onclick: () => { confirmDraw = true; renderDrawZone(); } }))); return; }
+    const err = el("p", { class: "notice err", hidden: true });
+    const yes = el("button", { class: "btn primary shrink", type: "button", text: "Confirmer", onclick: async () => {
+      yes.disabled = true; yes.textContent = "Tirage et chiffrement…";
+      try { await runDraw(); confirmDraw = false; renderOrg(); $("#resCard").scrollIntoView({ behavior: "smooth", block: "start" }); }
+      catch (x) { yes.disabled = false; yes.textContent = "Confirmer"; err.textContent = x.message || "Le tirage a échoué."; err.hidden = false; }
+    } });
+    z.append(el("div", { class: "confirm" },
+      el("p", { text: done ? "Les anciens messages ne seront plus valables : il faudra renvoyer les nouveaux à tout le monde." : "Vérifiez que tout le monde est inscrit et que les exclusions sont en place." }),
+      err, el("div", { class: "row" }, yes, el("button", { class: "btn shrink", type: "button", text: "Annuler", onclick: () => { confirmDraw = false; renderDrawZone(); } }))));
+  }
+
+  async function runDraw() {
+    const ids = org.people.map((p) => p.id); const excl = org.excl.slice();
+    let map = computeDraw(ids, excl);
+    if (!map) throw new Error("Impossible de trouver un tirage qui respecte toutes les exclusions. Retirez-en une et réessayez.");
+    const byId = Object.fromEntries(org.people.map((p) => [p.id, p]));
+    const list = [];
+    for (const g of ids) {
+      const r = byId[map[g]];
+      const payload = { pn: r.n, ps: r.p, w: r.w, b: org.budget, d: org.date, t: org.title };
+      const giver = byId[g];
+      const msg = giver.k ? await sealFor(giver.k, giver.v, payload) : await makeTicket(giver.n, payload);
+      list.push({ id: g, n: giver.n, msg, kind: giver.k ? "code" : "lien" });
+    }
+    const a = anonymize(map, excl); map = null; // la correspondance en clair n'est ni affichée ni enregistrée
+    org.results = { list, cycles: a.cycles, checks: a.checks, at: new Date().toISOString() };
+    save();
+  }
+
+  function renderResults() {
+    const card = $("#resCard"), chk = $("#checkCard");
+    card.hidden = chk.hidden = !org.results;
+    if (!org.results) return;
+    const ul = $("#resList"); ul.replaceChildren();
+    for (const r of org.results.list) {
+      const note = el("span", { class: "small muted" });
+      const head = "🎅 " + (org.title || "Secret Santa") + " : le tirage a eu lieu !\n";
+      let text;
+      if (r.kind === "lien" && org.link) text = head + "Voici ton lien personnel, ne le partage avec personne : ouvre-le et lance le dé !\n\n" + org.link + "#t=" + r.msg.replace(/^SANTA-T1\./, "");
+      else if (r.kind === "lien") text = head + "Ouvre la page du Secret Santa, choisis « Je lance le dé » et colle ce message (il est personnel, ne le partage pas) :\n\n" + r.msg;
+      else text = head + (org.link ? "Ouvre " + org.link + " , " : "Ouvre la page du Secret Santa, ") + "choisis « Je lance le dé », colle ce message puis tape ton code secret :\n\n" + r.msg;
+      ul.append(el("li", {}, el("span", {}, el("strong", { text: r.n }), el("span", { class: "small muted", text: r.kind === "lien" ? " · lien personnel" : " · avec code secret" })),
+        el("span", { class: "row", style: "flex:0 1 auto;align-items:center" },
+          el("button", { class: "btn shrink", type: "button", text: r.kind === "lien" && org.link ? "Copier son lien" : "Copier son message", onclick: () => copy(text, note) }), note)));
+    }
+    const k = org.results.checks; const line = (good, t) => el("li", {}, el("span", { class: good ? "tick" : "cross", text: good ? "✓" : "✗" }), el("span", { text: t }));
+    chk.replaceChildren(el("h2", { text: "Vérification du tirage" }),
+      el("ul", { class: "checks" },
+        line(k.givers >= 3, k.givers + " participants dans le tirage"),
+        line(k.receivers === k.givers, "Chaque participant offre un cadeau et en reçoit exactement un"),
+        line(k.selfDraws === 0, "Personne ne s'est tiré soi-même"),
+        line(k.exclusionHits === 0, k.exclusions + " exclusion" + (k.exclusions > 1 ? "s respectées" : " respectée"))),
+      el("p", { class: "muted small", text: "Chaque lettre représente une personne. Les lettres ont été distribuées au hasard au moment du tirage et la correspondance n'est enregistrée nulle part : vous ne pouvez pas savoir qui est A, B ou C." }));
+    org.results.cycles.forEach((cyc, i) => {
+      const box = el("div", { class: "chain" });
+      cyc.forEach((L) => { box.append(el("span", { class: "letter", text: L }), el("span", { class: "arrow", text: "→" })); });
+      box.append(el("span", { class: "letter", text: cyc[0] }));
+      chk.append(el("h3", { text: (org.results.cycles.length > 1 ? "Boucle " + (i + 1) : "Chaîne des cadeaux") + " · " + cyc.length + " personnes" }), box);
+    });
+    const pairs = el("div", { class: "pairs" });
+    for (const cyc of org.results.cycles) cyc.forEach((L, i) => pairs.append(el("div", { class: "pair" }, el("span", { class: "letter", text: L }), el("span", { class: "muted", text: "offre à" }), el("span", { class: "letter", text: cyc[(i + 1) % cyc.length] }))));
+    chk.append(el("h3", { text: "Détail des associations" }), pairs);
+  }
+
+  show();
+})();
+</script>
+</body>
+</html>
