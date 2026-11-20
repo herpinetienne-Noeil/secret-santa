@@ -93,8 +93,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .letter { font-family: var(--font-mono); font-weight: 700; font-size: 16px; min-width: 38px; height: 38px; padding: 0 6px; display: inline-grid; place-items: center; border-radius: 10px; background: var(--sunk); border: 1px solid var(--line); }
 .arrow { color: var(--muted); font-family: var(--font-mono); }
-.pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.pair { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.pairs { display: grid; gap: 8px; }
+.tag { font-family: var(--font-display); font-weight: 700; font-size: 15px; padding: 6px 12px; border-radius: 999px; background: var(--sunk); border: 1px solid var(--line); }
+.pair { display: flex; align-items: center; gap: 8px; font-size: 14px; flex-wrap: wrap; }
 @media (prefers-reduced-motion: reduce) { .cube.rolling { transition: none; } }
 </style>
 </head>
@@ -121,10 +122,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
       <p class="muted small">Votre code secret sert à ouvrir votre résultat. Notez-le bien : il ne peut pas être récupéré.</p>
       <form id="regForm">
         <label for="regPrenom">Prénom<input id="regPrenom" maxlength="30" autocomplete="given-name" required placeholder="Camille"></label>
-        <div class="row" style="align-items:center">
-          <div><div class="small muted">Votre pseudo</div><span class="pseudo" id="regPseudo"></span></div>
-          <button class="btn shrink" type="button" id="regReroll">Un autre pseudo</button>
-        </div>
+        <p class="small muted">Votre pseudo de Noël sera tiré au sort en même temps que le tirage : vous le découvrirez en lançant le dé.</p>
         <div class="row">
           <label for="regCode">Code secret<span class="hint">6 caractères minimum</span><input id="regCode" type="password" minlength="6" autocomplete="new-password" required></label>
           <label for="regCode2">Confirmer le code<span class="hint">&nbsp;</span><input id="regCode2" type="password" minlength="6" autocomplete="new-password" required></label>
@@ -214,6 +212,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
     <div class="card" id="resCard" hidden>
       <h2>Messages à envoyer</h2>
       <p class="muted small">Envoyez à chacun son lien ou son message. N'ouvrez pas les liens personnels des autres : ils affichent le résultat dès qu'on lance le dé. Ouvrez seulement le vôtre.</p>
+      <p class="notice" id="resCount"></p>
+      <p class="muted small">Après avoir lancé le dé, chacun voit un code de confirmation de 4 caractères et vous le renvoie. Tapez-le à côté de son prénom : la coche verte prouve qu'il a bien ouvert son résultat, sans rien vous dire de ce résultat.</p>
       <ul class="list" id="resList"></ul>
     </div>
 
@@ -325,8 +325,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
     return go(0) ? m : null;
   }
   const letterName = (i) => { const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; return i < 26 ? A[i] : A[Math.floor(i / 26) - 1] + A[i % 26]; };
-  function anonymize(map, excl) {
-    const ids = Object.keys(map); const lab = {}; shuffle(ids).forEach((id, i) => (lab[id] = letterName(i)));
+  function anonymize(map, excl, names) {
+    const ids = Object.keys(map); const lab = {}; shuffle(ids).forEach((id, i) => (lab[id] = names ? names[id] : letterName(i)));
     const seen = new Set(); const cycles = [];
     for (const s of shuffle(ids)) { if (seen.has(s)) continue; const c = []; let x = s; while (!seen.has(x)) { seen.add(x); c.push(lab[x]); x = map[x]; } cycles.push(c); }
     const bad = new Set(); for (const [a, b] of excl) { bad.add(a + "|" + b); bad.add(b + "|" + a); }
@@ -361,8 +361,6 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   }
 
   // ---------- inscription ----------
-  let regPseudo = newPseudo(); $("#regPseudo").textContent = regPseudo;
-  $("#regReroll").addEventListener("click", () => { regPseudo = newPseudo(); $("#regPseudo").textContent = regPseudo; });
   $("#regForm").addEventListener("submit", async (e) => {
     e.preventDefault(); const msg = $("#regMsg"); msg.hidden = true;
     const prenom = $("#regPrenom").value.trim(), c1 = $("#regCode").value, c2 = $("#regCode2").value;
@@ -372,7 +370,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
     const btn = $("#regBtn"); btn.disabled = true; btn.textContent = "Préparation…";
     try {
       const id = await makeIdentity(c1);
-      const code = packJSON("SANTA-I1", { n: prenom.slice(0, 30), p: regPseudo, w: $("#regWish").value.trim().slice(0, 200), k: id.pub, v: id.vault });
+      const code = packJSON("SANTA-I1", { n: prenom.slice(0, 30), w: $("#regWish").value.trim().slice(0, 200), k: id.pub, v: id.vault });
       $("#regCodeOut").value = code; $("#regOut").hidden = false;
       $("#regCode").value = ""; $("#regCode2").value = "";
       $("#regOut").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -424,9 +422,13 @@ button:disabled { opacity: .5; cursor: not-allowed; }
       el("span", { class: "to", text: "Vous offrez un cadeau à" }),
       el("span", { class: "name", text: r.pn }),
       el("span", { class: "muted" }, "alias ", el("span", { class: "pseudo", text: r.ps })),
+      r.mp ? el("p", { class: "small" }, "Et votre pseudo secret à vous : ", el("span", { class: "pseudo", text: r.mp })) : null,
       r.w ? el("div", { class: "wishes" }, el("strong", { text: "Ses idées cadeaux : " }), r.w) : el("p", { class: "muted small", text: "Pas d'idées cadeaux de sa part : à vous d'imaginer !" }),
       info ? el("p", { class: "small", text: info }) : null,
-      el("p", { class: "muted small", text: "Gardez le secret ! Rien n'est enregistré : ce résultat disparaît quand vous fermez la page." }),
+      r.cf ? el("div", { class: "notice", style: "width:100%" },
+        el("div", { class: "small", text: "Envoyez ce code de confirmation à l'organisateur, il prouve que vous avez bien reçu votre tirage :" }),
+        el("div", { class: "pseudo", style: "font-family:var(--font-mono);font-size:26px;letter-spacing:.2em", text: r.cf })) : null,
+      el("p", { class: "muted small", text: "Gardez le secret ! En cas d'oubli, rouvrez simplement le même lien ou le même message : le dé vous redonnera le même résultat." }),
       el("button", { class: "btn", type: "button", text: "Masquer", onclick: () => { out.replaceChildren(); ticker.textContent = "Qui allez-vous gâter ?"; } })));
     btn.disabled = false; btn.textContent = "Relancer le dé";
   });
@@ -450,7 +452,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
     try { d = unpackJSON("SANTA-I1", $("#addCode").value); if (!d.k || !d.v || !d.n) throw 0; }
     catch { out.textContent = "Code non reconnu : il doit commencer par SANTA-I1. et être copié en entier."; out.classList.add("notice", "err"); return; }
     if (org.people.some((p) => p.k === d.k)) { out.textContent = d.n + " est déjà dans la liste."; return; }
-    org.people.push({ id: d.k.slice(0, 16), n: d.n, p: d.p || "", w: d.w || "", k: d.k, v: d.v });
+    org.people.push({ id: d.k.slice(0, 16), n: d.n, w: d.w || "", k: d.k, v: d.v });
     if (org.results) out.textContent = d.n + " ajouté. Le tirage déjà fait ne l'inclut pas : relancez-le.";
     else out.textContent = d.n + " ajouté.";
     $("#addCode").value = ""; save(); renderOrg();
@@ -460,9 +462,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
     const n = $("#addName").value.trim().slice(0, 30);
     if (!n) { out.textContent = "Tapez un prénom."; return; }
     if (org.people.some((p) => p.n.toLowerCase() === n.toLowerCase())) { out.textContent = n + " est déjà dans la liste. Ajoutez une initiale pour les distinguer."; return; }
-    const taken = new Set(org.people.map((p) => p.p));
-    let ps = newPseudo(); for (let i = 0; i < 30 && taken.has(ps); i++) ps = newPseudo();
-    org.people.push({ id: "n" + b64u(rnd(9)), n, p: ps, w: $("#addWish").value.trim().slice(0, 200), k: null, v: null });
+    org.people.push({ id: "n" + b64u(rnd(9)), n, w: $("#addWish").value.trim().slice(0, 200), k: null, v: null });
     out.textContent = org.results ? n + " ajouté. Le tirage déjà fait ne l'inclut pas : relancez-le." : n + " ajouté.";
     $("#addName").value = ""; $("#addWish").value = ""; $("#addName").focus(); save(); renderOrg();
   };
@@ -476,7 +476,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 
   function fillSelect(sel) {
     const cur = sel.value; sel.replaceChildren(el("option", { value: "", text: "Choisir…" }));
-    for (const p of org.people) sel.append(el("option", { value: p.id, text: p.n + " · " + p.p }));
+    for (const p of org.people) sel.append(el("option", { value: p.id, text: p.n }));
     if (org.people.some((p) => p.id === cur)) sel.value = cur;
   }
 
@@ -485,7 +485,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
     $("#pCount").textContent = n ? "(" + n + ")" : "";
     const list = $("#pList"); list.replaceChildren();
     org.people.forEach((p, i) => list.append(el("li", {},
-      el("span", {}, el("strong", { text: p.n }), " ", el("span", { class: "pseudo muted", text: "· " + p.p }), el("span", { class: "small muted", text: p.k ? " · code secret" : " · lien personnel" })),
+      el("span", {}, el("strong", { text: p.n }), el("span", { class: "small muted", text: p.k ? " · code secret" : " · lien personnel" })),
       el("button", { class: "link", type: "button", text: "Retirer", onclick: () => {
         org.people.splice(i, 1); org.excl = org.excl.filter(([a, b]) => a !== p.id && b !== p.id); save(); renderOrg();
       } }))));
@@ -526,34 +526,67 @@ button:disabled { opacity: .5; cursor: not-allowed; }
     let map = computeDraw(ids, excl);
     if (!map) throw new Error("Impossible de trouver un tirage qui respecte toutes les exclusions. Retirez-en une et réessayez.");
     const byId = Object.fromEntries(org.people.map((p) => [p.id, p]));
+    // Secret pseudos: drawn now, sent only inside each sealed result, never stored next to a name.
+    const pseudoOf = {}; const used = new Set();
+    const nouns = shuffle(NOUNS), adjs = shuffle(ADJS); // different nouns so the pseudos are easy to tell apart
+    ids.forEach((id, i) => { let ps = nouns[i % nouns.length] + " " + adjs[i % adjs.length]; if (i >= nouns.length) ps += " " + (Math.floor(i / nouns.length) + 1); if (used.has(ps)) ps += " " + (i + 1); used.add(ps); pseudoOf[id] = ps; });
     const list = [];
     for (const g of ids) {
       const r = byId[map[g]];
-      const payload = { pn: r.n, ps: r.p, w: r.w, b: org.budget, d: org.date, t: org.title };
+      const cf = confCode();
+      const payload = { pn: r.n, ps: pseudoOf[r.id], mp: pseudoOf[g], w: r.w, b: org.budget, d: org.date, t: org.title, cf };
       const giver = byId[g];
       const msg = giver.k ? await sealFor(giver.k, giver.v, payload) : await makeTicket(giver.n, payload);
-      list.push({ id: g, n: giver.n, msg, kind: giver.k ? "code" : "lien" });
+      list.push({ id: g, n: giver.n, msg, kind: giver.k ? "code" : "lien", cf, ok: false });
     }
-    const a = anonymize(map, excl); map = null; // la correspondance en clair n'est ni affichée ni enregistrée
+    const a = anonymize(map, excl, pseudoOf); map = null; // la correspondance en clair n'est ni affichée ni enregistrée
     org.results = { list, cycles: a.cycles, checks: a.checks, at: new Date().toISOString() };
     save();
   }
+
+  // Confirmation code: 4 easy-to-read characters, hidden inside the sealed result. It proves the person opened it, and says nothing about whom they drew.
+  function confCode() { const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 4; i++) s += A[rint(A.length)]; return s; }
+  const norm = (s) => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
   function renderResults() {
     const card = $("#resCard"), chk = $("#checkCard");
     card.hidden = chk.hidden = !org.results;
     if (!org.results) return;
     const ul = $("#resList"); ul.replaceChildren();
+    const total = org.results.list.length, okCount = org.results.list.filter((r) => r.ok).length;
+    $("#resCount").textContent = okCount + " sur " + total + " ont confirmé avoir reçu leur tirage";
+    $("#resCount").className = "notice " + (okCount === total ? "ok" : "");
     for (const r of org.results.list) {
       const note = el("span", { class: "small muted" });
       const head = "🎅 " + (org.title || "Secret Santa") + " : le tirage a eu lieu !\n";
       let text;
-      if (r.kind === "lien" && org.link) text = head + "Voici ton lien personnel, ne le partage avec personne : ouvre-le et lance le dé !\n\n" + org.link + "#t=" + r.msg.replace(/^SANTA-T1\./, "");
-      else if (r.kind === "lien") text = head + "Ouvre la page du Secret Santa, choisis « Je lance le dé » et colle ce message (il est personnel, ne le partage pas) :\n\n" + r.msg;
-      else text = head + (org.link ? "Ouvre " + org.link + " , " : "Ouvre la page du Secret Santa, ") + "choisis « Je lance le dé », colle ce message puis tape ton code secret :\n\n" + r.msg;
-      ul.append(el("li", {}, el("span", {}, el("strong", { text: r.n }), el("span", { class: "small muted", text: r.kind === "lien" ? " · lien personnel" : " · avec code secret" })),
-        el("span", { class: "row", style: "flex:0 1 auto;align-items:center" },
-          el("button", { class: "btn shrink", type: "button", text: r.kind === "lien" && org.link ? "Copier son lien" : "Copier son message", onclick: () => copy(text, note) }), note)));
+      if (r.kind === "lien" && org.link) text = head + "Voici ton lien personnel, ne le partage avec personne : ouvre-le, lance le dé, puis renvoie-moi le code de confirmation qui s'affiche.\n\n" + org.link + "#t=" + r.msg.replace(/^SANTA-T1\./, "");
+      else if (r.kind === "lien") text = head + "Ouvre la page du Secret Santa, choisis « Je lance le dé » et colle ce message (il est personnel, ne le partage pas), puis renvoie-moi le code de confirmation qui s'affiche :\n\n" + r.msg;
+      else text = head + (org.link ? "Ouvre " + org.link + " , " : "Ouvre la page du Secret Santa, ") + "choisis « Je lance le dé », colle ce message, tape ton code secret, puis renvoie-moi le code de confirmation qui s'affiche :\n\n" + r.msg;
+      let status;
+      if (r.ok) {
+        status = el("span", { class: "row", style: "flex:0 1 auto;align-items:center" },
+          el("span", { class: "tick", text: "✓ A bien reçu son tirage" }),
+          el("button", { class: "link", type: "button", text: "Annuler", onclick: () => { r.ok = false; save(); renderResults(); } }));
+      } else {
+        const inp = el("input", { id: "cf-" + r.id, maxlength: "9", placeholder: "Code reçu", style: "width:8.5em;text-transform:uppercase", "aria-label": "Code de confirmation de " + r.n });
+        const fb = el("span", { class: "small" });
+        const check = () => {
+          if (!r.cf) { fb.textContent = "Ce tirage date d'avant les codes : cochez à la main."; return; }
+          if (norm(inp.value) === r.cf) { r.ok = true; save(); renderResults(); }
+          else { fb.textContent = "Code incorrect."; fb.className = "small cross"; }
+        };
+        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); check(); } });
+        status = el("span", { class: "row", style: "flex:0 1 auto;align-items:center" }, inp,
+          el("button", { class: "btn shrink", type: "button", text: "Valider", onclick: check }),
+          el("button", { class: "link", type: "button", text: "Confirmé à l'oral", onclick: () => { r.ok = true; save(); renderResults(); } }), fb);
+      }
+      ul.append(el("li", { style: "display:grid;gap:8px;justify-content:stretch" },
+        el("span", { class: "row", style: "align-items:center;justify-content:space-between" },
+          el("span", {}, el("strong", { text: r.n }), el("span", { class: "small muted", text: r.kind === "lien" ? " · lien personnel" : " · avec code secret" })),
+          el("span", { class: "row", style: "flex:0 1 auto;align-items:center" },
+            el("button", { class: "btn shrink", type: "button", text: r.kind === "lien" && org.link ? "Copier son lien" : "Copier son message", onclick: () => copy(text, note) }), note)),
+        status));
     }
     const k = org.results.checks; const line = (good, t) => el("li", {}, el("span", { class: good ? "tick" : "cross", text: good ? "✓" : "✗" }), el("span", { text: t }));
     chk.replaceChildren(el("h2", { text: "Vérification du tirage" }),
@@ -562,15 +595,18 @@ button:disabled { opacity: .5; cursor: not-allowed; }
         line(k.receivers === k.givers, "Chaque participant offre un cadeau et en reçoit exactement un"),
         line(k.selfDraws === 0, "Personne ne s'est tiré soi-même"),
         line(k.exclusionHits === 0, k.exclusions + " exclusion" + (k.exclusions > 1 ? "s respectées" : " respectée"))),
-      el("p", { class: "muted small", text: "Chaque lettre représente une personne. Les lettres ont été distribuées au hasard au moment du tirage et la correspondance n'est enregistrée nulle part : vous ne pouvez pas savoir qui est A, B ou C." }));
+      el("p", { class: "muted small", text: "Chaque participant apparaît sous son pseudo secret, tiré au sort au moment du tirage. Le lien entre pseudo et prénom n'est enregistré nulle part : chacun ne connaît que son propre pseudo et celui de la personne qu'il gâte." }));
+    const recapNote = el("span", { class: "small muted" });
+    const recap = "🎅 " + (org.title || "Secret Santa") + " : la chaîne des cadeaux\n\n" + org.results.cycles.map((c) => c.map((L, i) => L + " → " + c[(i + 1) % c.length]).join("\n")).join("\n\n") + "\n\nRetrouve ton pseudo secret en lançant le dé !";
+    chk.append(el("div", { class: "row" }, el("button", { class: "btn shrink", type: "button", text: "Copier la chaîne pour le groupe", onclick: () => copy(recap, recapNote) }), recapNote));
     org.results.cycles.forEach((cyc, i) => {
       const box = el("div", { class: "chain" });
-      cyc.forEach((L) => { box.append(el("span", { class: "letter", text: L }), el("span", { class: "arrow", text: "→" })); });
-      box.append(el("span", { class: "letter", text: cyc[0] }));
+      cyc.forEach((L) => { box.append(el("span", { class: "tag", text: L }), el("span", { class: "arrow", text: "→" })); });
+      box.append(el("span", { class: "tag", text: cyc[0] }));
       chk.append(el("h3", { text: (org.results.cycles.length > 1 ? "Boucle " + (i + 1) : "Chaîne des cadeaux") + " · " + cyc.length + " personnes" }), box);
     });
     const pairs = el("div", { class: "pairs" });
-    for (const cyc of org.results.cycles) cyc.forEach((L, i) => pairs.append(el("div", { class: "pair" }, el("span", { class: "letter", text: L }), el("span", { class: "muted", text: "offre à" }), el("span", { class: "letter", text: cyc[(i + 1) % cyc.length] }))));
+    for (const cyc of org.results.cycles) cyc.forEach((L, i) => pairs.append(el("div", { class: "pair" }, el("span", { class: "tag", text: L }), el("span", { class: "muted", text: "offre à" }), el("span", { class: "tag", text: cyc[(i + 1) % cyc.length] }))));
     chk.append(el("h3", { text: "Détail des associations" }), pairs);
   }
 
